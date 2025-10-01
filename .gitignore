@@ -1,0 +1,44 @@
+# Global ignores
+.DS_Store
+*.log
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+env/
+venv/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.coverage
+*.egg-info/
+
+# Environment files
+.env
+.env.*
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# NPM logs and caches
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / IDE
+.idea/
+.vscode/
+
+# System files
+Thumbs.db
+
+# Build artifacts (optional)
+*.tar
+*.gz
+/.vs
