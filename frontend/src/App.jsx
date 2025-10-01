@@ -43,7 +43,16 @@ function App() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/identify', {
+      // Determine the API base URL from the Vite environment.  When deploying the
+      // frontend and backend under different domains (e.g. api.darshanmanu.com),
+      // set VITE_API_URL accordingly in a `.env` file.  If not provided, fall
+      // back to a relative path which works when the frontend is served from
+      // the same origin as the backend via a reverse proxy.
+      const baseEnv = import.meta.env.VITE_API_URL || '';
+      const base = baseEnv.replace(/\/$/, '');
+      const endpoint = `${base}/api/identify`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ User_query: plot.trim() }),
