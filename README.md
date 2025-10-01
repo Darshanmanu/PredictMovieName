@@ -56,7 +56,9 @@ PredictMovieName/
 
    ```bash
    cp ../.env.example ../.env
-   # Edit ../.env and replace the placeholder with your actual API key
+    # Edit ../.env and replace the placeholder with your actual API key and, if
+    # desired, override VITE_API_URL with the backend origin (e.g.
+    # https://api.darshanmanu.com).
    ```
 
 4. Start the backend server:
@@ -82,9 +84,12 @@ The API will be available at `http://localhost:8000/api/identify`.
    npm run dev
    ```
 
-   Vite will start the app at a local URL (usually `http://localhost:5173`).  The app
-   assumes the backend is reachable at `http://localhost:8000`; adjust the fetch URL
-   in `src/App.jsx` if you run the API on a different port or host.
+   Vite will start the app at a local URL (usually `http://localhost:5173`).  By default
+   the app reads the `VITE_API_URL` environment variable from `.env` (see
+   `frontend/.env.example`).  If unset, requests fall back to the same
+   origin (`/api/identify`), which works when the frontend is served behind a
+   reverse proxy pointing to the backend.  When deploying the backend under a
+   separate domain, set `VITE_API_URL` accordingly (e.g. `https://api.darshanmanu.com`).
 
 3. Build for production (optional):
 
@@ -134,3 +139,23 @@ to `.env`, edit `.env` and set `OPENAI_API_KEY` to your actual key.
   knowledge base.  This repository sets up the scaffolding for such enhancements.
 * The frontend fetches results from `/api/identify` on the same domain.  When deploying
   the backend and frontend separately, configure CORS accordingly in `backend/app.py`.
+
+## Deployment overview
+
+This repository includes infrastructure for deploying the backend to Google Cloud Run
+and the frontend to Vercel.  The GitHub Actions workflow under
+`.github/workflows/cd.yml` builds the container image, pushes it to Google Artifact
+Registry and deploys it to Cloud Run.  It also triggers a Vercel deployment via a
+deploy hook URL.  To enable these steps you must configure the following secrets in
+your GitHub repository settings:
+
+* `GCP_PROJECT_ID` – the Google Cloud project ID where the service will be deployed.
+* `GCP_REGION` – the Cloud Run region (e.g. `asia-south1` for Mumbai).
+* `GCP_SERVICE_NAME` – the name of the Cloud Run service (e.g. `predict-movie-name-api`).
+* `GCP_SA_KEY` – a JSON service account key with permissions to deploy Cloud Run services.
+* `VERCEL_DEPLOY_HOOK_URL` – the URL of your Vercel deploy hook for the frontend.
+
+After adding these secrets, pushes to the `main` branch will automatically build and
+deploy both services.  The frontend will use the `VITE_API_URL` environment variable
+to reach the backend; in production set this to your Cloud Run custom domain (e.g.
+`https://api.darshanmanu.com`).

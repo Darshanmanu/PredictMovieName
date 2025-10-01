@@ -1,0 +1,80 @@
+# Continuous Deployment pipeline
+#
+# This GitHub Actions workflow builds the backend and frontend whenever
+# changes are pushed to the main branch.  After successfully building
+# both parts of the project, it triggers deployments to your hosting
+# providers.  The deployment steps are conditional on secrets you
+# configure in your repository settings.  Refer to Render's docs for
+# creating web services and static sites【452160455791908†L161-L175】【468740522821639†L156-L163】.
+
+name: CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # Build and deploy the FastAPI backend to Google Cloud Run.  This job
+  # authenticates with a service account, builds a container image, pushes it
+  # to Artifact Registry, and deploys a new revision.  It runs only if the
+  # required GCP secrets are provided.
+  deploy-backend:
+    runs-on: ubuntu-latest
+    if: |
+      ${{ secrets.GCP_PROJECT_ID != '' && secrets.GCP_REGION != '' && secrets.GCP_SERVICE_NAME != '' && secrets.GCP_SA_KEY != '' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 428.0.0'
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Configure gcloud project
+        run: |
+          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+          gcloud config set run/platform managed
+          gcloud config set run/region ${{ secrets.GCP_REGION }}
+      - name: Build and push Docker image
+        working-directory: backend
+        run: |
+          IMAGE="gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_SERVICE_NAME }}:${{ github.sha }}"
+          gcloud builds submit --quiet --tag "$IMAGE" .
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ secrets.GCP_SERVICE_NAME }} \
+            --image $IMAGE \
+            --region ${{ secrets.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated 
+
+  # Build the React frontend and trigger a Vercel deployment.  The build
+  # artifact is not published to GitHub Pages; instead a deploy hook is used
+  # to instruct Vercel to pull the latest commit and build.  The Vercel
+  # deploy hook URL should be stored as a secret named VERCEL_DEPLOY_HOOK_URL.
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies and build
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+      - name: Trigger Vercel Deploy Hook
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          echo "Triggering Vercel deployment..."
+          curl -s -X POST "$HOOK" || echo "Vercel deploy hook failed"
